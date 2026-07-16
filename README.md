@@ -1,44 +1,65 @@
 # Poogle
 
-Local semantic search for your research-paper library. Point it at a folder of
-PDFs and ask in plain language — Poogle returns the papers that actually answer
-the query. Everything runs on-device; nothing leaves your Mac.
+<p align="center">
+  <img src="Assets/poogle.icon/Assets/Union%204.svg" alt="Poogle icon" width="72">
+</p>
 
-## How it works
+I wanted the useful paper in a large PDF folder to be easier to find than the
+name I gave it months ago. Poogle searches the text and meaning of a local
+library, then opens the paper or reveals it in Finder. It stays on your Mac.
 
-**Indexing**
-- Recursively finds PDFs and identifies each by the SHA-256 of its bytes, so
-  moving or duplicating a file never re-embeds it.
-- Extracts and normalizes text with PyMuPDF, recovers titles and abstracts, and
-  drops table-and-number "soup" chunks before they reach the index.
-- Embeds 512-token body chunks (128 overlap) with MLX Qwen3-Embedding-4B and
-  stores the vectors and text in SQLite (FTS5).
+```mermaid
+flowchart LR
+    A[PDF folder] --> B[Read text]
+    B --> C[MLX embeddings]
+    C --> D[(SQLite + FTS5)]
+    Q[Plain-language query] --> E[Semantic and lexical candidates]
+    D --> E
+    E --> F[MLX reranker]
+    F --> G[Relevant papers]
+```
 
-**Search**
-- *Recall* — a document enters the pool when its best chunk clears a cosine
-  floor on the Qwen body vector, or when it carries a strong exact/lexical match.
-- *Precision* — the top candidates are scored by the MLX Qwen3-Reranker, a
-  cross-encoder that reads the query and passage together. Only results above a
-  relevance threshold are returned, ranked and de-duplicated, so the number of
-  results adapts to how much the library actually contains.
+## How it behaves
 
-The app is native SwiftUI; a small Python sidecar handles embedding and
-reranking through MLX on Apple Silicon.
+Poogle fingerprints PDFs by their bytes, so moving or copying one does not make
+it embed the same document again. It extracts text with PyMuPDF, creates
+overlapping body chunks, and stores vectors with searchable text in SQLite.
 
-## Run it
+At search time it collects semantic and exact-text candidates, then uses a
+cross-encoder reranker that reads each passage with the query. A query can
+return no results when nothing in the library clears the relevance checks; that
+is more useful than a confident-looking random list.
 
-Requires macOS 15+ on Apple Silicon, the Xcode toolchain, and Python 3.12.
+## Things to expect
+
+The first run creates a Python environment and downloads the MLX models, so it
+takes longer and needs an internet connection once. Indexing a large library is
+deliberate work, and malformed PDFs may be skipped with a count in the app.
+
+The interface is native SwiftUI, while the small Python worker does embeddings
+and reranking. It is built for Apple Silicon, not as a cross-platform reader.
+
+## Install and run
+
+Requires macOS 15 or newer on Apple Silicon, Xcode command-line tools, and
+Python 3.12.
 
 ```sh
+git clone https://github.com/vladkalinichencko/Poogle.git
+cd Poogle
 ./script/build_and_run.sh
 ```
 
-First run sets up the Python environment, builds the app, installs it to
-`/Applications`, and launches it. Open Poogle, choose a folder of PDFs, and let
-it index — the MLX models download on first use.
+The script prepares the worker, builds the app, installs it in `/Applications`,
+and launches it. Choose a PDF folder in Poogle, then synchronize it.
 
-## Layout
+For tests:
 
-- `Sources/Poogle` — SwiftUI app, SQLite index, and search engine.
-- `Sources/Poogle/Resources/embedding_worker.py` — MLX embedding and reranking sidecar.
-- `script/` — build/run and index-maintenance scripts.
+```sh
+swift test --disable-sandbox
+```
+
+## Status
+
+This is a source-available prototype while I am building it out. It has no
+license grant yet, and a future product version may use different terms.
