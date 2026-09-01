@@ -13,7 +13,7 @@ final class LibraryStore {
     var searchProgress: SearchProgress?
     var skippedFiles: [String] = []
 
-    private let scanner: DocumentScanner
+    private let indexer: LibraryIndexer
     private let worker: EmbeddingWorker
     private let database: IndexDatabase
     private let searchEngine: SearchEngine
@@ -26,13 +26,15 @@ final class LibraryStore {
         database: IndexDatabase,
         searchEngine: SearchEngine
     ) {
-        self.scanner = scanner
+        indexer = LibraryIndexer(
+            scanner: scanner,
+            worker: worker,
+            database: database
+        )
         self.worker = worker
         self.database = database
         self.searchEngine = searchEngine
-        if let path = UserDefaults.standard.string(forKey: "libraryFolder") {
-            folder = URL(filePath: path)
-        }
+        folder = LibrarySettings.folder
         Task {
             do {
                 let count = try await database.documentCount()
@@ -60,7 +62,7 @@ final class LibraryStore {
         }
 
         folder = panel.url
-        UserDefaults.standard.set(panel.url?.path, forKey: "libraryFolder")
+        LibrarySettings.save(folder: panel.url)
         results = []
         searchState = .idle
         skippedFiles = []
@@ -74,57 +76,21 @@ final class LibraryStore {
 
         indexingTask = Task {
             do {
-                state = .scanning
                 skippedFiles = []
-                if rebuild {
-                    try await database.rebuild()
-                }
-
-                let scanner = scanner
-                let worker = worker
-                let files = try await Task.detached {
-                    try scanner.fingerprints(in: folder)
-                }.value
-                try Task.checkCancellation()
-                let uniqueFiles = scanner.uniqueDocuments(in: files)
-                state = .preparing(total: uniqueFiles.count)
-                let pendingPaths = try await database.prepareSync(files)
-                let pending = scanner.uniqueDocuments(in: pendingPaths)
-                try Task.checkCancellation()
-
-                for (offset, fingerprint) in pending.enumerated() {
-                    try Task.checkCancellation()
-                    state = .indexing(
-                        completed: offset,
-                        total: pending.count,
-                        fileName: URL(filePath: fingerprint.path).lastPathComponent
-                    )
-                    do {
-                        let embedded = try await Task.detached {
-                            try worker.embed(
-                                URL(filePath: fingerprint.path)
-                            )
-                        }.value
-                        try Task.checkCancellation()
-                        try await database.replace(
-                            embedded,
-                            fingerprint: fingerprint
-                        )
-                    } catch is CancellationError {
-                        throw CancellationError()
-                    } catch {
-                        skippedFiles.append(
-                            URL(filePath: fingerprint.path).lastPathComponent
-                        )
-                        worker.stop()
+                _ = try await indexer.sync(
+                    folder: folder,
+                    rebuild: rebuild,
+                    onState: { newState in
+                        await MainActor.run { [weak self] in
+                            self?.state = newState
+                        }
+                    },
+                    onSkipped: { fileName in
+                        await MainActor.run { [weak self] in
+                            self?.skippedFiles.append(fileName)
+                        }
                     }
-                }
-
-                _ = try await database.prepareSync(files)
-                try await database.removeMissing(
-                    paths: Set(files.map(\.path))
                 )
-                state = .ready(documentCount: try await database.documentCount())
             } catch is CancellationError {
                 state = .ready(documentCount: (try? await database.documentCount()) ?? 0)
             } catch {

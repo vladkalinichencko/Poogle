@@ -123,18 +123,22 @@ final class EmbeddingWorker: SearchModel, @unchecked Sendable {
         if process?.isRunning == true {
             return
         }
-        guard let script = Bundle.module.url(
-            forResource: "embedding_worker",
-            withExtension: "py",
-            subdirectory: "Resources"
-        ) else {
+        let appResources = Self.appResources
+        let script = appResources?
+            .appending(path: "Poogle_Poogle.bundle/Resources/embedding_worker.py")
+            ?? Bundle.module.url(
+                forResource: "embedding_worker",
+                withExtension: "py",
+                subdirectory: "Resources"
+            )
+        guard let script, FileManager.default.fileExists(atPath: script.path) else {
             throw EmbeddingWorkerError.missingScript
         }
 
         let process = Process()
         let inputPipe = Pipe()
         let outputPipe = Pipe()
-        let resources = Bundle.main.resourceURL
+        let resources = appResources ?? Bundle.main.resourceURL
         let bundledPython = resources?
             .appending(path: ".venv/bin/python")
         let bundledPythonHome = resources?
@@ -158,6 +162,19 @@ final class EmbeddingWorker: SearchModel, @unchecked Sendable {
         self.process = process
         input = inputPipe.fileHandleForWriting
         output = outputPipe.fileHandleForReading
+    }
+
+    private static var appResources: URL? {
+        let executable = URL(filePath: CommandLine.arguments[0])
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        let contents = executable
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        guard contents.lastPathComponent == "Contents" else {
+            return nil
+        }
+        return contents.appending(path: "Resources")
     }
 
     private func readLine() throws -> Data {

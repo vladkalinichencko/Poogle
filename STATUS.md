@@ -27,6 +27,7 @@
 | MLX Qwen3-Reranker-0.6B relevance ranking | Real |
 | Per-result relevance percentage | Real |
 | Variable result count from calibrated relevance | Real |
+| MCP library synchronization and paper search for local agents | Real |
 | Google-like Liquid Glass interface | Real |
 | Annotated native UI refinement | Built, activates on next app launch |
 

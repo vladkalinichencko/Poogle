@@ -27,7 +27,7 @@ stop_running_app() {
   pkill -f "embedding_worker.py" >/dev/null 2>&1 || true
 }
 
-if [[ ! -x "$ROOT_DIR/.venv/bin/python" ]]; then
+if [[ ! -f "$ROOT_DIR/.venv/.ready" ]]; then
   "$ROOT_DIR/script/setup_worker.sh"
 fi
 
