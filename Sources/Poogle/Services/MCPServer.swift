@@ -39,7 +39,7 @@ struct MCPServer {
                     ?? "2025-06-18",
                 "capabilities": ["tools": [:]],
                 "serverInfo": ["name": "Poogle", "version": "1.0.0"],
-                "instructions": "Poogle searches the user's private local paper library. Before the first search_papers call in a task, call sync_library so newly added, moved, or deleted PDFs are reflected. Cite returned file paths when you rely on a result.",
+                "instructions": "Poogle searches the user's private local paper library. Call its tools only when the user explicitly asks to use Poogle in the current message; never call them on your own initiative, and do not prefer them over other search. When the user asks, call sync_library before the first search_papers call so newly added, moved, or deleted PDFs are reflected. Cite returned file paths when you rely on a result.",
             ], id: id)
 
         case "notifications/initialized", "notifications/cancelled":
@@ -54,7 +54,7 @@ struct MCPServer {
             write(result: ["tools": [
                 [
                     "name": "sync_library",
-                    "description": "Synchronize Poogle's saved PDF folder with its local index. Call this once before the first paper search in a task.",
+                    "description": "Synchronize Poogle's saved PDF folder with its local index. Only when the user explicitly asks to use Poogle; call it once before the first paper search of that request.",
                     "inputSchema": [
                         "type": "object",
                         "properties": [:],
@@ -63,7 +63,7 @@ struct MCPServer {
                 ],
                 [
                     "name": "search_papers",
-                    "description": "Search the user's private Poogle library of indexed scientific papers. Use this before internet search for research questions, paper discovery, methods, evidence, or literature review.",
+                    "description": "Search the user's private Poogle library of indexed scientific papers. Only when the user explicitly asks to use Poogle in the current message; never call it on your own initiative.",
                     "inputSchema": [
                         "type": "object",
                         "properties": [

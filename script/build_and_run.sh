@@ -6,7 +6,9 @@ APP_NAME="Poogle"
 BUNDLE_ID="com.vladislavkalinichenko.Poogle"
 MIN_SYSTEM_VERSION="15.0"
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")/.." && pwd -P)"
+cd "$ROOT_DIR"
+[[ -f Package.swift ]] || { echo "Package.swift not found in ROOT_DIR=$ROOT_DIR (script: ${BASH_SOURCE[0]:-$0})" >&2; exit 1; }
 DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 INSTALLED_APP="/Applications/$APP_NAME.app"
@@ -34,9 +36,9 @@ fi
 export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-$ROOT_DIR/.build/clang-module-cache}"
 mkdir -p "$CLANG_MODULE_CACHE_PATH"
 
-swift build --disable-sandbox
-BUILD_BINARY="$(swift build --disable-sandbox --show-bin-path)/$APP_NAME"
-BUILD_DIR="$(swift build --disable-sandbox --show-bin-path)"
+swift build --disable-sandbox --package-path "$ROOT_DIR"
+BUILD_BINARY="$(swift build --disable-sandbox --package-path "$ROOT_DIR" --show-bin-path)/$APP_NAME"
+BUILD_DIR="$(swift build --disable-sandbox --package-path "$ROOT_DIR" --show-bin-path)"
 
 PYTHON_BASE_PREFIX="$("$ROOT_DIR/.venv/bin/python" -c 'import sys; print(sys.base_prefix)')"
 PYTHON_VERSION="$("$ROOT_DIR/.venv/bin/python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
